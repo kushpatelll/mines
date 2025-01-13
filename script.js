@@ -1,129 +1,61 @@
-const boardSize = 5; // fixed board size (5x5)
-let numMines = 5; // default number of mines
-let board = document.getElementById('board');
-let cells = [];
-let gameOver = false;
-let revealedCount = 0;
+document.getElementById('startBtn').addEventListener('click', startGame);
 
-// Generate board with the chosen number of mines
-function generateBoard() {
-  // Clear the previous board
-  board.innerHTML = '';
-  cells = [];
-  revealedCount = 0;
+let gridSize = 5;
+let grid = document.getElementById('grid');
+let multiplierElem = document.getElementById('multiplier');
+let currentBetElem = document.getElementById('currentBet');
+let resultElem = document.getElementById('result');
+let numMines, betAmount, multiplier = 1, gameActive = true;
+let minePositions = [];
 
-  // Get the number of mines from the user input
-  numMines = parseInt(document.getElementById('mine-count').value);
+function startGame() {
+    numMines = parseInt(document.getElementById('mines').value);
+    betAmount = parseInt(document.getElementById('bet').value);
+    multiplier = 1 + (numMines * 0.1);
+    multiplierElem.textContent = `${multiplier.toFixed(1)}x`;
+    currentBetElem.textContent = betAmount;
 
-  // Ensure number of mines is valid for the grid size
-  if (numMines < 1 || numMines >= boardSize * boardSize) {
-    alert('Invalid number of mines! Please select a number between 1 and ' + (boardSize * boardSize - 1));
-    return;
-  }
+    // Reset game state
+    gameActive = true;
+    resultElem.textContent = '';
+    minePositions = [];
+    grid.innerHTML = '';
 
-  const minePositions = generateMines();
-  
-  for (let row = 0; row < boardSize; row++) {
-    for (let col = 0; col < boardSize; col++) {
-      const cell = document.createElement('div');
-      cell.classList.add('cell');
-      cell.setAttribute('data-row', row);
-      cell.setAttribute('data-col', col);
-      
-      // Add event listener
-      cell.addEventListener('click', handleCellClick);
-      cells.push(cell);
-      board.appendChild(cell);
+    // Generate mine positions
+    while (minePositions.length < numMines) {
+        let randPos = Math.floor(Math.random() * (gridSize * gridSize));
+        if (!minePositions.includes(randPos)) {
+            minePositions.push(randPos);
+        }
     }
-  }
 
-  // Place mines and calculate numbers
-  cells.forEach(cell => {
-    const row = cell.getAttribute('data-row');
-    const col = cell.getAttribute('data-col');
-    const mine = minePositions.some(m => m.row == row && m.col == col);
-    
-    if (mine) {
-      cell.dataset.mine = true;
+    // Create the grid
+    for (let i = 0; i < gridSize * gridSize; i++) {
+        let cell = document.createElement('div');
+        cell.classList.add('hidden');
+        cell.setAttribute('data-id', i);
+        cell.addEventListener('click', cellClickHandler);
+        grid.appendChild(cell);
+    }
+}
+
+function cellClickHandler(event) {
+    if (!gameActive) return;
+
+    const cell = event.target;
+    const cellId = parseInt(cell.getAttribute('data-id'));
+
+    // Check if clicked on a mine
+    if (minePositions.includes(cellId)) {
+        cell.classList.add('bomb');
+        resultElem.textContent = `Game Over! You hit a bomb. You lost your bet of ${betAmount}.`;
+        gameActive = false;
     } else {
-      const surroundingMines = countAdjacentMines(row, col, minePositions);
-      if (surroundingMines > 0) {
-        cell.textContent = surroundingMines;
-      }
+        cell.classList.add('diamond');
+        let remainingCells = document.querySelectorAll('.grid div.hidden');
+        if (remainingCells.length === numMines) {
+            resultElem.textContent = `You won! Your payout is ${betAmount * multiplier} units.`;
+            gameActive = false;
+        }
     }
-  });
 }
-
-// Generate random mine positions
-function generateMines() {
-  let positions = [];
-  while (positions.length < numMines) {
-    let randRow = Math.floor(Math.random() * boardSize);
-    let randCol = Math.floor(Math.random() * boardSize);
-    if (!positions.some(pos => pos.row === randRow && pos.col === randCol)) {
-      positions.push({ row: randRow, col: randCol });
-    }
-  }
-  return positions;
-}
-
-// Count adjacent mines
-function countAdjacentMines(row, col, mines) {
-  let mineCount = 0;
-  const adjacentCells = [
-    [-1, -1], [-1, 0], [-1, 1],
-    [0, -1],         [0, 1],
-    [1, -1], [1, 0], [1, 1]
-  ];
-
-  adjacentCells.forEach(([rOffset, cOffset]) => {
-    const newRow = parseInt(row) + rOffset;
-    const newCol = parseInt(col) + cOffset;
-    if (newRow >= 0 && newRow < boardSize && newCol >= 0 && newCol < boardSize) {
-      if (mines.some(m => m.row === newRow && m.col === newCol)) {
-        mineCount++;
-      }
-    }
-  });
-
-  return mineCount;
-}
-
-// Handle cell click
-function handleCellClick(e) {
-  if (gameOver) return;
-  
-  const cell = e.target;
-  const row = cell.getAttribute('data-row');
-  const col = cell.getAttribute('data-col');
-  
-  if (cell.classList.contains('revealed')) return;
-
-  // Reveal cell
-  cell.classList.add('revealed');
-  
-  if (cell.dataset.mine) {
-    cell.classList.add('mine');
-    alert('Game Over! You hit a mine!');
-    gameOver = true;
-  } else {
-    revealedCount++;
-    if (revealedCount === (boardSize * boardSize - numMines)) {
-      alert('Congratulations! You won!');
-    }
-  }
-}
-
-// Restart game
-document.getElementById('restart').addEventListener('click', () => {
-  gameOver = false;
-  generateBoard();
-});
-
-// Start a new game with the selected number of mines
-document.getElementById('start-game').addEventListener('click', () => {
-  gameOver = false;
-  generateBoard();
-});
-
-generateBoard(); // Initial game start
